@@ -29,6 +29,7 @@ public class Tamagotchi implements Runnable {
 	public Tamagotchi(String nombre) {
 		this.nombre = nombre;
 		this.vivo = true;
+		this.rnd = new Random();
 		this.ritmoInterno = establecerRitmoInterno();
 	}
 	
@@ -67,7 +68,6 @@ public class Tamagotchi implements Runnable {
 		int numero2 = 0;
 		
 		int resultado = 0;
-		
 		
 		while (!respuestaCorrecta) {
 			System.out.println("EMPIEZA EL JUEGO: Dime dos números que, sumándolos, su resultado sea menor que 10.");
@@ -112,7 +112,8 @@ public class Tamagotchi implements Runnable {
 	
 	@Override
 	public void run() {
-		
+		Thread ensuciarse = new Thread(() -> ensuciarse());
+		ensuciarse.start();
 		
 	}
 	
@@ -162,14 +163,15 @@ public class Tamagotchi implements Runnable {
 		
 		while (!formatoCorrecto) {
 			System.out.print("Introduce un número: ");
+			String entrada = "";
 			try {
-				numero = sc.nextInt();
+				entrada = sc.nextLine();
+				numero = Integer.parseInt(entrada);
+				formatoCorrecto = true;
 			} catch (NumberFormatException e) {
 				System.out.println("Error: deberías introducir número.");
 			}
 		}
-		
-		sc.close();
 		return numero;
 	}
 
