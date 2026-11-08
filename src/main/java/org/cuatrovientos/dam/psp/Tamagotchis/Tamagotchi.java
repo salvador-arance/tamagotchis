@@ -266,12 +266,4 @@ public class Tamagotchi implements Runnable {
 	public int getNivelSuciedad() {
 		return nivelSuciedad.get();
 	}
-
-	public int getRitmoInterno() {
-		return ritmoInterno;
-	}
-
-	public Random getRnd() {
-		return rnd;
-	}
 }

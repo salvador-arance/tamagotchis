@@ -34,6 +34,11 @@ public class Cuidador {
 	}
 	
 	public void alimentar(Tamagotchi t) {
+		if (!t.isVivo()) {
+			System.out.println("No le puedes dar de comer a un tamagotchi muerto.");
+			return;
+		}
+		
 		if (t.ordenar(ACCIONES.COMIENDO)) {
 			System.out.println("Orden de comer enviada.");
 			return;
@@ -43,6 +48,10 @@ public class Cuidador {
 	}
 	
 	public void limpiar(Tamagotchi t) {
+		if (!t.isVivo()) {
+			System.out.println("No puedes limpiar a un tamagotchi muerto.");
+			return;
+		}
 		if (t.ordenar(ACCIONES.LIMPIANDOSE)) {
 			System.out.println("Orden de limpiar enviada.");
 			return;
