@@ -1,0 +1,52 @@
+# ==========================================
+# 1. Archivos generados por Maven y Java
+# ==========================================
+**/target/
+**/*.class
+**/*.jar
+**/*.war
+**/*.ear
+**/*.rar
+
+# Logs y bases de datos temporales
+**/*.log
+
+# ==========================================
+# 2. Archivos específicos de Eclipse
+# ==========================================
+**/.classpath
+**/.project
+**/.settings/
+**/.factorypath
+**/.buildpath
+
+# Metadatos del área de trabajo de Eclipse (si se crea dentro del repo)
+**/.metadata/
+
+# Plugin de Maven en Eclipse (m2e)
+**/.m2e/
+
+# ==========================================
+# 3. Ficheros del Sistema Operativo
+# ==========================================
+# macOS
+**/.DS_Store
+**/.AppleDouble
+**/.LSOverride
+
+# Windows
+**/Thumbs.db
+**/ehthumbs.db
+**/Desktop.ini
+$RECYCLE.BIN/
+
+# ==========================================
+# 4. Otros IDEs (opcional pero recomendado)
+# ==========================================
+# IntelliJ IDEA
+**/.idea/
+**/*.iml
+**/*.iws
+
+# Visual Studio Code
+**/.vscode/
