@@ -1,8 +1,6 @@
 package org.cuatrovientos.dam.psp.Tamagotchis;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.Scanner;
 
 import org.cuatrovientos.dam.psp.Tamagotchis.Tamagotchi.ACCIONES;
@@ -16,6 +14,8 @@ public class Cuidador {
 	//CONSTRUCTOR
 	
 	public Cuidador(int cantidadTamagotchis) {
+		misTamagotchis = new ArrayList<Tamagotchi>();
+		misHilos = new ArrayList<Thread>();
 		for (int i = 1; i <= cantidadTamagotchis; i ++ ) {
 			String nombreTamagotchi = "Tamagotchi " + i;
 			Tamagotchi t = new Tamagotchi(nombreTamagotchi);
@@ -28,7 +28,8 @@ public class Cuidador {
 	public void lanzarTamagotchis() {
 		for (Tamagotchi t: misTamagotchis) {
 			Thread h = new Thread(t);
-			h.start();
+	        misHilos.add(h);
+	        h.start();
 		}
 	}
 	
@@ -42,8 +43,8 @@ public class Cuidador {
 	}
 	
 	public void limpiar(Tamagotchi t) {
-		if (t.ordenar(ACCIONES.COMIENDO)) {
-			System.out.println("Orden de comer enviada.");
+		if (t.ordenar(ACCIONES.LIMPIANDOSE)) {
+			System.out.println("Orden de limpiar enviada.");
 			return;
 		}
 		
@@ -56,7 +57,7 @@ public class Cuidador {
 			return;
 		}
 		
-		System.out.println("no se puede matar: está ocioso.");
+		System.out.println("no se puede matar: no está ocioso.");
 	}
 	
 	public void responder(Tamagotchi t, int numero) {
@@ -76,18 +77,26 @@ public class Cuidador {
 	
 	public Tamagotchi elegirTamagotchi() {
 		for (int i = 0; i < misTamagotchis.size(); i++) {
-			System.out.println(i + misTamagotchis.get(i).getNombre() + " vivo: " + misTamagotchis.get(i).isVivo());
+			System.out.println(i + ": " + misTamagotchis.get(i).getNombre() + " vivo: " + misTamagotchis.get(i).isVivo());
 		}
 		
-		System.out.println("Elige uno de ellos introduciendo su número: ");
-		
-		int indiceTamagotchi = pedirEntero();
+		boolean indiceNoFueraDeRango = false;
+		int indiceTamagotchi = 0;
+		while(!indiceNoFueraDeRango) {
+			System.out.println("Elige uno de ellos introduciendo su número: ");
+			indiceTamagotchi = pedirEntero();
+			if (indiceTamagotchi < 0 || indiceTamagotchi > misTamagotchis.size() -1) {
+				System.out.println("Tiene que ser un número dentro de los límites del array.");
+			} else {
+				indiceNoFueraDeRango = true;
+			}
+		}
 		
 		return misTamagotchis.get(indiceTamagotchi);
 	}
 	
 	public void menu() {
-		while (misTamagotchis.size() > 0) {
+		while (hayAlgunoVivo()) {
 			System.out.println("=====OPCIONES=====");
 			System.out.println("1. ALIMENTAR");
 			System.out.println("2. LIMPIAR");
@@ -104,11 +113,14 @@ public class Cuidador {
 				
 				if (opcion < 0 || opcion > 5) {
 					System.out.println("OPCIÓN NO VÁLIDA!");
+				} else {
+					opcionValida = true;
 				}
 			}
 			
 			switch (opcion){
 			case 0:
+				apagarTodo();
 				return;
 			case 1:
 				alimentar(elegirTamagotchi());
@@ -121,6 +133,7 @@ public class Cuidador {
 				break;
 			case 4:
 				Tamagotchi t = elegirTamagotchi();
+				System.out.println("Escribe el resultado de la suma que ha planteado " + t.getNombre() + ":");
 				int respuesta = pedirEntero();
 				responder(t, respuesta);
 				break;
@@ -128,9 +141,20 @@ public class Cuidador {
 				mostrarEstados();
 				break;
 			}
-			
-			
 		}
+	}
+	
+	private void apagarTodo() {
+	    for (Tamagotchi t : misTamagotchis) {
+	        t.apagar();
+	    }
+	    for (Thread h : misHilos) {
+	        try {
+	            h.join();
+	        } catch (InterruptedException e) {
+	            Thread.currentThread().interrupt();
+	        }
+	    }
 	}
 	
 	private int pedirEntero() {
@@ -152,4 +176,12 @@ public class Cuidador {
 		return numero;
 	}
 	
+	private boolean hayAlgunoVivo() {
+	    for (Tamagotchi t : misTamagotchis) {
+	        if (t.isVivo()) { 
+	        	return true;
+	        	}
+	    }
+	    return false;
+	}
 }

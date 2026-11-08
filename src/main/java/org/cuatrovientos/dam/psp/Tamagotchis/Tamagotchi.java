@@ -23,8 +23,11 @@ public class Tamagotchi implements Runnable {
 		JUGANDO,
 		COMIENDO,
 		LIMPIANDOSE,
-		OCIOSO
+		OCIOSO,
+		MUERTO
 	}
+	private volatile Thread hiloEnsuciarse;
+	private volatile Thread hiloMuerte;
 	
 	private AtomicReference<ACCIONES> accionActual = new AtomicReference<ACCIONES>();
 	private AtomicReference<ACCIONES> accionPendiente = new AtomicReference<ACCIONES>();
@@ -44,7 +47,8 @@ public class Tamagotchi implements Runnable {
 	
 	private void morir() {
 		if (this.vivo.compareAndSet(true, false)) {
-			System.out.print("Soy " + this.nombre + " y me voy a morir.");
+			System.out.println("Soy " + this.nombre + " y me voy a morir.");
+			interrumpirHilos();
 		}
 	}
 	
@@ -53,7 +57,7 @@ public class Tamagotchi implements Runnable {
 			try {
 				Thread.sleep(TIEMPO_ENSUCIARSE);
 			} catch (InterruptedException e) {
-				e.printStackTrace();
+				return;
 			}
 			int nuevoValorSuciedad = this.nivelSuciedad.incrementAndGet();
 			
@@ -75,28 +79,35 @@ public class Tamagotchi implements Runnable {
 					this.morir();
 				}
 			} catch (InterruptedException e) {
-				e.printStackTrace();
+				return;
 			}
 		}
 	}
 	
 	public boolean soyAsesinado() {
-		if (this.accionActual.get() == ACCIONES.OCIOSO) {
-			morir();
-			return true;
-		}
-		return false;
+	    if (!this.isVivo()) {
+	        return false;
+	    }
+	    if (this.accionActual.compareAndSet(ACCIONES.OCIOSO, ACCIONES.MUERTO)) {
+	        morir();
+	        return true;
+	    }
+	    return false;
 	}
 	
 	public boolean alimentarse() {
+		if (!this.isVivo()) {
+	        return false;
+	    }
+		
 		if (this.accionActual.compareAndSet(ACCIONES.OCIOSO, ACCIONES.COMIENDO)) {
-			System.out.println("Estoy empezando a comer.");
+			System.out.println("Soy " + this.nombre + ": estoy empezando a comer.");
 			try  {
 				Thread.sleep(ritmoInterno);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			System.out.println("Acabo de terminar de comer.");
+			System.out.println("Soy " + this.nombre + ": acabo de terminar de comer.");
 			this.accionActual.set(ACCIONES.OCIOSO);
 			return true;
 		}
@@ -146,8 +157,11 @@ public class Tamagotchi implements Runnable {
 	}
 	
 	public boolean limpiarse() {
+		if (!this.isVivo()) {
+	        return false;
+	    }
 		if (this.accionActual.compareAndSet(ACCIONES.OCIOSO, ACCIONES.LIMPIANDOSE)) {
-			System.out.println("Estoy empezando a limpiarme.");
+			System.out.println("Soy " + this.nombre + ": estoy empezando a limpiarme.");
 			try  {
 				Thread.sleep(TIEMPO_LAVARSE);
 			} catch (InterruptedException e) {
@@ -156,7 +170,7 @@ public class Tamagotchi implements Runnable {
 			
 			this.nivelSuciedad.set(0);
 			
-			System.out.println("Acabo de terminar de LIMPIARME.");
+			System.out.println("Soy " + this.nombre + ": acabo de terminar de limpiarme.");
 			this.accionActual.set(ACCIONES.OCIOSO);
 			return true;
 		}
@@ -170,11 +184,15 @@ public class Tamagotchi implements Runnable {
 	}
 	
 	private void proponerLimpieza() {
-		System.out.println("Mi nivel de suciedad es insoportable, si no me limpias moriré!");
+		System.out.println("Soy " + this.nombre + ": mi nivel de suciedad es insoportable, si no me limpias moriré!");
 	}
 	
 	public boolean ordenar(ACCIONES accion) {
-		if (accionPendiente.compareAndSet(null, accion)) {
+		if (!this.isVivo()) {
+			return false;
+		}
+		
+		if (accionActual.get() == ACCIONES.OCIOSO && accionPendiente.compareAndSet(null, accion)) {
 			return true;
 		}
 		return false;
@@ -186,10 +204,10 @@ public class Tamagotchi implements Runnable {
 	
 	@Override
 	public void run() {
-		Thread ensuciarse = new Thread(() -> ensuciarse());
-		Thread morirse = new Thread(() -> cuentaAtrasDeLaMuerte());
-		ensuciarse.start();
-		morirse.start();
+		hiloEnsuciarse = new Thread(() -> ensuciarse());
+		hiloMuerte = new Thread(() -> cuentaAtrasDeLaMuerte());
+		hiloEnsuciarse.start();
+		hiloMuerte.start();
 		
 		while (vivo.get()) {
 		    ACCIONES orden = accionPendiente.getAndSet(null);
@@ -209,22 +227,32 @@ public class Tamagotchi implements Runnable {
 		    switch (orden) {
 		        case COMIENDO:
 		            if (alimentarse()) {
-		                System.out.println("Orden de comer cumplida.");
+		            	System.out.println("Soy " + this.nombre + ": orden de comer cumplida.");
 		            } else {
-		                System.out.println("No he podido comer.");
+		            	System.out.println("Soy " + this.nombre + ": no he podido comer.");
 		            }
 		            break;
 		        case LIMPIANDOSE:
 		            if (limpiarse()) {
-		                System.out.println("Orden de limpiarme cumplida.");
+		            	System.out.println("Soy " + this.nombre + ": orden de limpiarme cumplida.");
 		            } else {
-		                System.out.println("No he podido limpiarme.");
+		            	System.out.println("Soy " + this.nombre + ": no he podido limpiarme.");
 		            }
 		            break;
 		        default:
 		            break;
 		    }
 		}
+	}
+	
+	public void apagar() {
+	    this.vivo.set(false);
+	    interrumpirHilos();
+	}
+	
+	private void interrumpirHilos() {
+	    if (hiloEnsuciarse != null) hiloEnsuciarse.interrupt();
+	    if (hiloMuerte != null) hiloMuerte.interrupt();
 	}
 	
 	public boolean isVivo() {
