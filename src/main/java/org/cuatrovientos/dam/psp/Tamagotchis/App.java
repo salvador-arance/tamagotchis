@@ -5,6 +5,8 @@ package org.cuatrovientos.dam.psp.Tamagotchis;
  */
 public class App {
     public static void main(String[] args) {
-        System.out.println("Hello World!");
+        Cuidador cuidador = new Cuidador(5);
+        cuidador.lanzarTamagotchis();
+        cuidador.menu();
     }
 }
