@@ -1,18 +1,21 @@
 package org.cuatrovientos.dam.psp.Tamagotchis;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Tamagotchi implements Runnable {
 	
 	private final static int LIMITE_SUCIEDAD_ANTES_DE_MORIR = 10;
+	private final static int LIMITE_SUCIEDAD_ANTES_DE_AVISAR = 5;
 	private final static int TIEMPO_DE_VIDA = 5 * 60 * 1000;
 	private final static int TIEMPO_ENSUCIARSE = 20 * 1000;
 	private final static int TIEMPO_LAVARSE = 5 * 1000;
 	
 	private String nombre;
 
-	private int nivelSuciedad = 0;
-	private boolean vivo = false;
+	private AtomicInteger nivelSuciedad = new AtomicInteger(0);
+	private AtomicBoolean vivo ;
 	private int ritmoInterno = 0;
 	private Random rnd;
 	private Scanner sc = new Scanner(System.in);
@@ -24,11 +27,11 @@ public class Tamagotchi implements Runnable {
 		OCIOSO
 	}
 	
-	private ACCIONES accionActual = ACCIONES.OCIOSO;
+	private volatile ACCIONES accionActual = ACCIONES.OCIOSO;
 	
 	public Tamagotchi(String nombre) {
 		this.nombre = nombre;
-		this.vivo = true;
+		this.vivo = new AtomicBoolean(true);
 		this.rnd = new Random();
 		this.ritmoInterno = establecerRitmoInterno();
 	}
@@ -37,18 +40,46 @@ public class Tamagotchi implements Runnable {
 		return rnd.nextInt(100, 1000);
 	}
 	
+	private void morir() {
+		if (this.vivo.compareAndSet(true, false)) {
+			System.out.print("Soy " + this.nombre + " y me voy a morir.");
+			this.vivo.set(false);
+		}
+	}
+	
 	private void ensuciarse() {
-		while (this.vivo) {
+		while (this.vivo.get()) {
 			try {
 				Thread.sleep(TIEMPO_ENSUCIARSE);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			++ this.nivelSuciedad;
+			int nuevoValorSuciedad = this.nivelSuciedad.incrementAndGet();
+			
+			if (nuevoValorSuciedad == LIMITE_SUCIEDAD_ANTES_DE_AVISAR) {
+				this.proponerLimpieza();
+			}
+			
+			if (nuevoValorSuciedad  == LIMITE_SUCIEDAD_ANTES_DE_MORIR) {
+				this.morir();
+			}
 		}
 	}
 	
-	private void alimentarse() {
+	private void cuentaAtrasDeLaMuerte() {
+		while (this.vivo.get()) {
+			try {
+				Thread.sleep(TIEMPO_DE_VIDA);
+				if (this.vivo.get()) {
+					this.morir();
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private synchronized void alimentarse() {
 		this.accionActual = ACCIONES.COMIENDO;
 		System.out.println("Estoy empezando a comer.");
 		try  {
@@ -60,7 +91,7 @@ public class Tamagotchi implements Runnable {
 		this.accionActual = ACCIONES.OCIOSO;
 	}
 	
-	private void jugar() {
+	private synchronized void jugar() {
 		this.accionActual = ACCIONES.JUGANDO;
 		
 		boolean respuestaCorrecta = false;
@@ -85,7 +116,7 @@ public class Tamagotchi implements Runnable {
 		this.accionActual = ACCIONES.OCIOSO;
 	}
 	
-	private void limpiarse() {
+	private synchronized void limpiarse() {
 		this.accionActual = ACCIONES.LIMPIANDOSE;
 		System.out.println("Estoy empezando a limpiarme.");
 		try  {
@@ -94,7 +125,7 @@ public class Tamagotchi implements Runnable {
 			e.printStackTrace();
 		}
 		
-		this.nivelSuciedad = 0;
+		this.nivelSuciedad.set(0);
 		
 		System.out.println("Acabo de terminar de LIMPIARME.");
 		this.accionActual = ACCIONES.OCIOSO;
@@ -113,8 +144,9 @@ public class Tamagotchi implements Runnable {
 	@Override
 	public void run() {
 		Thread ensuciarse = new Thread(() -> ensuciarse());
+		Thread morirse = new Thread(() -> cuentaAtrasDeLaMuerte());
 		ensuciarse.start();
-		
+		morirse.start();
 	}
 	
 	public String getNombre() {
@@ -126,19 +158,11 @@ public class Tamagotchi implements Runnable {
 	}
 
 	public int getNivelSuciedad() {
-		return nivelSuciedad;
+		return nivelSuciedad.get();
 	}
 
 	private void setNivelSuciedad(int nivelSuciedad) {
-		this.nivelSuciedad = nivelSuciedad;
-	}
-
-	public boolean isVivo() {
-		return vivo;
-	}
-
-	private void setVivo(boolean vivo) {
-		this.vivo = vivo;
+		this.nivelSuciedad.set(nivelSuciedad);
 	}
 
 	public int getRitmoInterno() {
