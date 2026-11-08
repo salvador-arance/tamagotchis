@@ -10,6 +10,13 @@
 - Tamagotchis tienen un tiempo de vida de 5 minutos. cuando ese tiempo pasa se mueren.
 - El cuidador en todo momento podrá lanzar acciones a los tamagotchis y puede saber el estado de sus tamagotchis. también los puede matar, pero solo se mueren si están ociosos.
 
+## Modelo de concurrencia
+
+- Hay un hilo por cuidador y un hilo por tamagotchi.
+- El hilo del tamagotchi es un bucle que cada -100ms comprueba el tiempo. (vida, suciedad, fin de la acción en curso).
+- El cuidador llama directamente a los métodos del tamagotchi.
+- Quien avanza el tiempo y termina las acciones es el bucle del tamagotchi.
+
 ## Análisis de clases necesarias
 
 ### Main
@@ -30,7 +37,7 @@
 #### Atributos
 
 - Nombre -> String
-- Tamagotchis a su cargo -> Lista sincronizada
+- Tamagotchis a su cargo -> CopyOnWriteArrayList
 
 #### Métodos
 
@@ -83,10 +90,15 @@ Jugar NO sería una opción del menú ya que la proposición de jugar nace de lo
 - Nombre -> String
 - Nivel de suciedad -> int
 - Está vivo? -> boolean
-- Está ocupado? -> boolean
+- Está ocupado? -> AtomicBoolean
 - Ritmo interno -> int
 - rnd para génerar ritmo interno y proponer jugar al cuidador
-- Id -> Atomic integer
+- Id -> static Atomic integer
+- Instante de nacimiento -> para calcular el tiempo de vida restante.
+- Instante de última suciedad -> referencia para el contador de 20s
+- 
+- Suciedad avisada -> boolean
+- juego pendiente ->
 
 #### Métodos
 
