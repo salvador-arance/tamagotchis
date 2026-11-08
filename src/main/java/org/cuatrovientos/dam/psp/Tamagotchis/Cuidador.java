@@ -6,5 +6,10 @@ import java.util.Random;
 import java.util.Scanner;
 
 public class Cuidador {
+	// ATRIBUTOS
 	
+	
+	//CONSTRUCTOR
+	
+	// MÉTODOS
 }

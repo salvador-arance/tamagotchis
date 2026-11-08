@@ -1,8 +1,8 @@
 package org.cuatrovientos.dam.psp.Tamagotchis;
 import java.util.Random;
-import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Tamagotchi implements Runnable {
 	
@@ -18,7 +18,6 @@ public class Tamagotchi implements Runnable {
 	private AtomicBoolean vivo ;
 	private int ritmoInterno = 0;
 	private Random rnd;
-	private Scanner sc = new Scanner(System.in);
 	
 	public enum ACCIONES {
 		JUGANDO,
@@ -27,13 +26,16 @@ public class Tamagotchi implements Runnable {
 		OCIOSO
 	}
 	
-	private volatile ACCIONES accionActual = ACCIONES.OCIOSO;
+	private AtomicReference<ACCIONES> accionActual = new AtomicReference<ACCIONES>();
+	private AtomicReference<ACCIONES> accionPendiente = new AtomicReference<ACCIONES>();
+	private AtomicReference<Integer> respuestaCuidador = new AtomicReference<Integer>();
 	
 	public Tamagotchi(String nombre) {
 		this.nombre = nombre;
 		this.vivo = new AtomicBoolean(true);
 		this.rnd = new Random();
 		this.ritmoInterno = establecerRitmoInterno();
+		this.accionActual.set(ACCIONES.OCIOSO);
 	}
 	
 	private int establecerRitmoInterno() {
@@ -78,59 +80,90 @@ public class Tamagotchi implements Runnable {
 		}
 	}
 	
-	private synchronized void alimentarse() {
-		this.accionActual = ACCIONES.COMIENDO;
-		System.out.println("Estoy empezando a comer.");
-		try  {
-			Thread.sleep(ritmoInterno);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
+	public boolean soyAsesinado() {
+		if (this.accionActual.get() == ACCIONES.OCIOSO) {
+			morir();
+			return true;
 		}
-		System.out.println("Acabo de terminar de comer.");
-		this.accionActual = ACCIONES.OCIOSO;
+		return false;
 	}
 	
-	private synchronized void jugar() {
-		this.accionActual = ACCIONES.JUGANDO;
-		
-		boolean respuestaCorrecta = false;
-		int numero1 = 0;
-		int numero2 = 0;
-		
-		int resultado = 0;
-		
-		while (!respuestaCorrecta) {
-			System.out.println("EMPIEZA EL JUEGO: Dime dos números que, sumándolos, su resultado sea menor que 10.");
-			numero1 = pedirInt();
-			numero2 = pedirInt();
-			resultado = numero1 + numero2;
-			respuestaCorrecta = resultado < 10;
-			if (!respuestaCorrecta) {
-				System.out.println("Te has equivocado!");
+	public boolean alimentarse() {
+		if (this.accionActual.compareAndSet(ACCIONES.OCIOSO, ACCIONES.COMIENDO)) {
+			System.out.println("Estoy empezando a comer.");
+			try  {
+				Thread.sleep(ritmoInterno);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
 			}
+			System.out.println("Acabo de terminar de comer.");
+			this.accionActual.set(ACCIONES.OCIOSO);
+			return true;
 		}
-		
-		System.out.println("Has ganado!");
-		
-		this.accionActual = ACCIONES.OCIOSO;
+		return false;
 	}
 	
-	private synchronized void limpiarse() {
-		this.accionActual = ACCIONES.LIMPIANDOSE;
-		System.out.println("Estoy empezando a limpiarme.");
-		try  {
-			Thread.sleep(TIEMPO_LAVARSE);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
+	private void jugar() {
+		if (this.accionActual.compareAndSet(ACCIONES.OCIOSO, ACCIONES.JUGANDO)) {
+			int numero1 = rnd.nextInt(10);
+			int numero2 = rnd.nextInt(10 - numero1);
+			int resultado = numero1 + numero2;
+
+			this.respuestaCuidador.set(null);
+
+			boolean respuestaCorrecta = false;
+
+			while (!respuestaCorrecta && this.vivo.get()) {
+				System.out.println("Soy " + this.nombre + " y quiero jugar: ¿cuánto es "
+						+ numero1 + " + " + numero2 + "?");
+
+				Integer respuesta = null;
+				while (respuesta == null && this.vivo.get()) {
+					respuesta = this.respuestaCuidador.getAndSet(null);
+					if (respuesta == null) {
+						try {
+							Thread.sleep(100);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+					}
+				}
+
+				if (respuesta != null) {
+					respuestaCorrecta = respuesta == resultado;
+					if (!respuestaCorrecta) {
+						System.out.println("Soy " + this.nombre + ": respuesta incorrecta, sigo jugando.");
+					}
+				}
+			}
+
+			if (respuestaCorrecta) {
+				System.out.println("Soy " + this.nombre + ": ¡has acertado!");
+			}
+
+			this.accionActual.set(ACCIONES.OCIOSO);
 		}
-		
-		this.nivelSuciedad.set(0);
-		
-		System.out.println("Acabo de terminar de LIMPIARME.");
-		this.accionActual = ACCIONES.OCIOSO;
 	}
 	
-	private void revelarEstado() {
+	public boolean limpiarse() {
+		if (this.accionActual.compareAndSet(ACCIONES.OCIOSO, ACCIONES.LIMPIANDOSE)) {
+			System.out.println("Estoy empezando a limpiarme.");
+			try  {
+				Thread.sleep(TIEMPO_LAVARSE);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			
+			this.nivelSuciedad.set(0);
+			
+			System.out.println("Acabo de terminar de LIMPIARME.");
+			this.accionActual.set(ACCIONES.OCIOSO);
+			return true;
+		}
+		return false;
+	}
+	
+	public void revelarEstado() {
 		System.out.println("Soy " + this.nombre +"\n"
 				+ "Nivel de suciedad: " + this.nivelSuciedad + "\n"
 						+ "Accion actual: " + this.accionActual);
@@ -140,62 +173,77 @@ public class Tamagotchi implements Runnable {
 		System.out.println("Mi nivel de suciedad es insoportable, si no me limpias moriré!");
 	}
 	
+	public boolean ordenar(ACCIONES accion) {
+		if (accionPendiente.compareAndSet(null, accion)) {
+			return true;
+		}
+		return false;
+	}
+	
+	public void responder(int respuesta) {
+	    this.respuestaCuidador.set(respuesta);
+	}
+	
 	@Override
 	public void run() {
 		Thread ensuciarse = new Thread(() -> ensuciarse());
 		Thread morirse = new Thread(() -> cuentaAtrasDeLaMuerte());
 		ensuciarse.start();
 		morirse.start();
+		
+		while (vivo.get()) {
+		    ACCIONES orden = accionPendiente.getAndSet(null);
+
+		    if (orden == null) {
+		        try {
+		        	if (rnd.nextInt(500) == 0) {
+		        		jugar();
+		        	}
+		            Thread.sleep(100);
+		        } catch (InterruptedException e) {
+		            e.printStackTrace();
+		        }
+		        continue;
+		    }
+
+		    switch (orden) {
+		        case COMIENDO:
+		            if (alimentarse()) {
+		                System.out.println("Orden de comer cumplida.");
+		            } else {
+		                System.out.println("No he podido comer.");
+		            }
+		            break;
+		        case LIMPIANDOSE:
+		            if (limpiarse()) {
+		                System.out.println("Orden de limpiarme cumplida.");
+		            } else {
+		                System.out.println("No he podido limpiarme.");
+		            }
+		            break;
+		        default:
+		            break;
+		    }
+		}
+	}
+	
+	public boolean isVivo() {
+		return this.vivo.get();
 	}
 	
 	public String getNombre() {
 		return nombre;
 	}
 
-	private void setNombre(String nombre) {
-		this.nombre = nombre;
-	}
-
 	public int getNivelSuciedad() {
 		return nivelSuciedad.get();
-	}
-
-	private void setNivelSuciedad(int nivelSuciedad) {
-		this.nivelSuciedad.set(nivelSuciedad);
 	}
 
 	public int getRitmoInterno() {
 		return ritmoInterno;
 	}
 
-	private void setRitmoInterno(int ritmoInterno) {
-		this.ritmoInterno = ritmoInterno;
-	}
-
 	public Random getRnd() {
 		return rnd;
 	}
-
-	private void setRnd(Random rnd) {
-		this.rnd = rnd;
-	}
-	
-	private int pedirInt() {
-		boolean formatoCorrecto = false;
-		int numero = 0;
-		
-		while (!formatoCorrecto) {
-			System.out.print("Introduce un número: ");
-			String entrada = "";
-			try {
-				entrada = sc.nextLine();
-				numero = Integer.parseInt(entrada);
-				formatoCorrecto = true;
-			} catch (NumberFormatException e) {
-				System.out.println("Error: deberías introducir número.");
-			}
-		}
-		return numero;
-	}
-
 }
