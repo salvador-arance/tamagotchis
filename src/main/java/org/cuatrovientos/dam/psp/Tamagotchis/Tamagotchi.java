@@ -43,7 +43,6 @@ public class Tamagotchi implements Runnable {
 	private void morir() {
 		if (this.vivo.compareAndSet(true, false)) {
 			System.out.print("Soy " + this.nombre + " y me voy a morir.");
-			this.vivo.set(false);
 		}
 	}
 	
