@@ -93,12 +93,6 @@ Jugar NO sería una opción del menú ya que la proposición de jugar nace de lo
 - Está ocupado? -> AtomicBoolean
 - Ritmo interno -> int
 - rnd para génerar ritmo interno y proponer jugar al cuidador
-- Id -> static Atomic integer
-- Instante de nacimiento -> para calcular el tiempo de vida restante.
-- Instante de última suciedad -> referencia para el contador de 20s
-- 
-- Suciedad avisada -> boolean
-- juego pendiente ->
 
 #### Métodos
 
